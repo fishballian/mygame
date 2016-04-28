@@ -1,0 +1,9 @@
+{application,mygame,
+             [{description,[]},
+              {vsn,"1"},
+              {registered,[]},
+              {applications,[kernel,stdlib,ranch]},
+              {mod,{mygame_app,[]}},
+              {env,[]},
+              {modules,[echo_protocol,game_protocol,mg_protocol,mg_route,
+                        mygame,mygame_app,mygame_sup]}]}.

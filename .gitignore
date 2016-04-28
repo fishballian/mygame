@@ -1,0 +1,6 @@
+*.beam
+*.swp
+deps/
+ebin/
+.rebar/
+erl_crash.dump
