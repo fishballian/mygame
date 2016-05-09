@@ -17,6 +17,7 @@
 
 %% API
 -export([get_role_base/1, set_role_base/2, get_role_attr/1, set_role_attr/2]).
+
 %% @spec get_role_base(RoleID :: non_neg_integer()) -> #r_role_base{}
 %% @doc get role base
 get_role_base(RoleID) ->

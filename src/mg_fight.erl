@@ -4,7 +4,7 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 2016-04-28 10:59:12.080598
+%%% Created : 2016-05-09 11:26:44.407904
 %%%-------------------------------------------------------------------
 -module(mg_fight).
 -author("yuanxiaopeng").
@@ -13,34 +13,27 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
-%-record(r_actor, {id :: non_neg_integer(),
-%                  hp :: non_neg_integer(),
-%                  attack :: non_neg_integer(),
-%                  defence :: non_neg_integer()}).
-%
-%-record(r_fight_record, {id :: non_neg_integer(),
-%                         actor1 :: any(),
-%                         actor2 :: any(),
-%                         round_records :: list()}).
-%
-%%% API
-%-export([fight/2]).
-%
-%%% @spec fight(Actor1 :: #r_actor{}, Actor2 :: #r_actor{}) -> #r_fight_record{}
-%%% @doc fight
-%fight(Actor1, Actor2) ->
-%    RoundRecords = do_fight(Actor1, Actor2, 1, []),
-%    #r_fight_record{actor1 = Actor1, actor2 = Actor2, round_records = RoundRecords}.
-%
-%%% Internel
-%%% @spec do_fight(Actor1 :: #r_actor{}, Actor2 :: #r_actor{}, Round :: pos_integer(), RoundRecords :: list()) -> list()
-%%% @doc do fight
-%do_fight(Actor1, Actor2, Round, RoundRecords) ->
-%   []. 
+%% API
+-export([pk/3]).
+-export([pk2/5]). %% @todo del
 
+-type side_info() :: any().
+-type mod() :: any().
 
+%% @doc pk
+-spec pk(side_info(), side_info(), [mod()])-> any().
+pk(_LeftInfo, _RightInfo, _Mods) ->
+    ok.
 
-    
+%% Internel
+%% right all dead, left win
+pk2(_LDonePets, _LReadyPets, [], [], _Mods) ->
+    left_win;
+%% left all dead, right win
+pk2([], [], _RDonePets, _ReadyPets, _Mods) ->
+    right_win;
+pk2(_LDonePets, _LReadyPets, _RDonePets, _ReadyPets, _Mods) ->
+    next_round.
 
 %% Eunit
 -ifdef(TEST).
