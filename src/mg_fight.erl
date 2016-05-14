@@ -36,7 +36,7 @@
 
 
 
--record(fight_data, {left, right, round}).
+-record(fight_data, {left, right, round, mods}).
 
 
 %% API
@@ -59,8 +59,12 @@ pk2(_LDonePets, _LReadyPets, [], [], _Fight) ->
 pk2([], [], _RDonePets, _ReadyPets, _Fight) ->
     right_win;
 pk2(_LReadyPets, [], _RDonePets, [], _Fight) ->
+    %%round_end,
+    %%round_begin,
     next_round;
 pk2(_LDonePets, _LReadyPets, _RDonePets, _ReadyPets, _Fight) ->
+    %%attack_start,
+    %%attack_end
     next_attack.
 
 %% Eunit
