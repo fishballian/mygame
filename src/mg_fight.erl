@@ -13,59 +13,31 @@
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
--record(fight_log, {id :: non_neg_integer(), 
-                    left,
-                    right,
-                    result :: non_neg_integer(),
-                    mods = [] :: [mod()],
-                    rounds = [] :: list()}).
-
--record(round_log, {num :: non_neg_integer(),
-                    events :: list()}).
-
--record(attack_event, {src_pos :: non_neg_integer(),
-                     target_effects:: list(),
-                     skill_id :: non_neg_integer()}).
-
--record(newpet_event, {new_pets :: list()}).
-        
-
--record(effect, {pos :: non_neg_integer(),
-                 type :: non_neg_integer(), 
-                 value :: any()}).
-
-
-
--record(fight_data, {left, right, round, mods}).
-
-
-%% API
--export([pk/3]).
--export([pk2/5]). %% @todo del
+-record(fight_log, {left, right, winner, round_logs}).
 
 -type side_info() :: any().
--type mod() :: any().
 
-%% @doc pk
--spec pk(side_info(), side_info(), [mod()])-> any().
-pk(_LeftInfo, _RightInfo, _Mods) ->
-    ok.
+-spec pk(Left, Right, Options) -> {ok, FightLog} when
+    Left :: side_info(),
+    Right :: side_info(),
+    Options :: list(),
+    FightLog :: #fight_log{}.
+pk(Left, Right, Options) ->
+    {ok, Winner, RoundLogs} = do_pk(Left, Right, Options),
+    FightLog = #fight_log{left = Left, right = Right, winner = Winner, round_logs = RoundLogs},
+    {ok, FightLog}.
+
+%% API
 
 %% Internel
-%% right all dead, left win
-pk2(_LDonePets, _LReadyPets, [], [], _Fight) ->
-    left_win;
-%% left all dead, right win
-pk2([], [], _RDonePets, _ReadyPets, _Fight) ->
-    right_win;
-pk2(_LReadyPets, [], _RDonePets, [], _Fight) ->
-    %%round_end,
-    %%round_begin,
-    next_round;
-pk2(_LDonePets, _LReadyPets, _RDonePets, _ReadyPets, _Fight) ->
-    %%attack_start,
-    %%attack_end
-    next_attack.
+-spec do_pk(Left, Right, Options) -> {ok, Winner, RoundLogs} when
+    Left :: side_info(),
+    Right :: side_info(),
+    Options :: list(),
+    Winner :: left | right,
+    RoundLogs :: list().
+do_pk(Left, Right, Options) ->
+    {ok, left, []}.
 
 %% Eunit
 -ifdef(TEST).
