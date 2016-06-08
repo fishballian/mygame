@@ -17,4 +17,5 @@ start(_StartType, _StartArgs) ->
     mygame_sup:start_link().
 
 stop(_State) ->
+    ranch:stop_listener(mygame),
     ok.

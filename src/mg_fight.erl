@@ -19,9 +19,17 @@
 -record(side_info, {name, pets = []}).
 -record(state, {round_logs = [], round = 0}).
 -record(round_log, {attacks = []}).
--record(pet, {pos, seq, hp, phy_attack, done}).
--record(attack_log, {src, effect_list}).
--record(effect, {dst, hp_change, hp_remain}).
+-record(pet, {pos, seq, hp, phy_attack, done, skill}).
+-record(attack_log, {src, type, effect_list}).
+-record(effect_log, {dst, hp_change, hp_remain}).
+-record(c_effect, {type, value, area}).
+
+-define(SKILL_NORMAL, 1).
+-define(SKILL_BACKSTAB, 2).
+-define(SKILL_HORIZONTAL, 3).
+-define(SKILL_VERTICAL, 4).
+-define(SKILL_ATTACK_ALL, 5).
+-define(SKILL_HEAL_FRIENDS, 6).
 
 -export([pk/2]).
 -export([test/0]).
@@ -112,26 +120,53 @@ fight(FightKey, AllPetDict) ->
     {ok, FightPet} = dict:find(FightKey, AllPetDict),
     NewFightPet = FightPet#pet{done = true},
     AllPetDict2 = dict:store(FightKey, NewFightPet, AllPetDict),
-    case get_target_pet_key(FightKey, AllPetDict) of
+    case get_target_pet_key(FightKey, AllPetDict2) of
         no_target ->
             NewAllPetDict = AllPetDict2, 
             {NewAllPetDict, []};
         TargetKey ->
-            AffectPetKeys = get_area_pet_keys(direct, TargetKey, AllPetDict2),
-            {NewAllPetDict, Effects} = apply_effect(FightKey, AffectPetKeys, AllPetDict2),
-            Attack = #attack_log{src = FightKey, effect_list = Effects},
-            {NewAllPetDict, [Attack]} 
+            Skill = FightPet#pet.skill,
+            CEffects = get_skill_effects(Skill),
+            lists:foldl(fun(I, {AllPetDictAcc, AttackAcc}) ->
+                                {NewAllPetDictAcc, EffectLogs} = apply_effect(FightKey, TargetKey, I, AllPetDictAcc),
+                                Attack = #attack_log{src = FightKey, type = I#c_effect.type, effect_list = EffectLogs},
+                                NewAttackAcc = [Attack | AttackAcc],
+                                {NewAllPetDictAcc, NewAttackAcc}
+                        end, {AllPetDict2, []}, CEffects)
     end.
 
-apply_effect(FightKey, AffectPetKeys, AllPetDict) ->
+apply_effect(FightKey, TargetKey, CEffect, AllPetDict) ->
+    #c_effect{area = Area, value = Value, type = Type} = CEffect,
+    AffectPetKeys = get_area_pet_keys(Area, TargetKey, AllPetDict),
     {ok, FightPet} = dict:find(FightKey, AllPetDict),
-    #pet{phy_attack = FPhyEffect} = FightPet,
+    apply_effect2(Type, AffectPetKeys, Value, FightPet, AllPetDict).
+
+apply_effect2(hurt, AffectPetKeys, Value, _FightPet, AllPetDict) ->
     lists:foldl(fun(I, {AllPetDictAcc, EffectAcc}) ->
                         {ok, AffectPet} = dict:find(I, AllPetDictAcc),
                         #pet{hp = THP} = AffectPet,
-                        ReduceHp = FPhyEffect,
+                        ReduceHp = Value,
                         NewTHP = erlang:max(0, THP - ReduceHp),
-                        Effect = #effect{dst = I, hp_change = - ReduceHp, hp_remain = NewTHP},
+                        Effect = #effect_log{dst = I, hp_change = - ReduceHp, hp_remain = NewTHP},
+                        NewEffectAcc = [Effect | EffectAcc],
+                        case NewTHP > 0 of
+                            true ->
+                                NewAffectPet = AffectPet#pet{hp = NewTHP},
+                                NewAllPetDictAcc = dict:store(I, NewAffectPet, AllPetDictAcc),
+                                {NewAllPetDictAcc, NewEffectAcc};
+                            _ ->
+                                NewAllPetDictAcc = dict:erase(I, AllPetDictAcc),
+                                {NewAllPetDictAcc, NewEffectAcc} 
+                        end
+                end, {AllPetDict, []}, AffectPetKeys);
+apply_effect2(heal, AffectPetKeys, Value, _FightPet, AllPetDict) ->
+    lists:foldl(fun(I, {AllPetDictAcc, EffectAcc}) ->
+                        {ok, AffectPet} = dict:find(I, AllPetDictAcc),
+                        #pet{hp = THP} = AffectPet,
+                        AddHp = Value,
+                        MaxHp = 99999999,
+                        NewTHP = erlang:min(MaxHp, THP + AddHp),
+                        Effect = #effect_log{dst = I, hp_change = AddHp, hp_remain = NewTHP},
                         NewEffectAcc = [Effect | EffectAcc],
                         case NewTHP > 0 of
                             true ->
@@ -143,6 +178,7 @@ apply_effect(FightKey, AffectPetKeys, AllPetDict) ->
                                 {NewAllPetDictAcc, NewEffectAcc} 
                         end
                 end, {AllPetDict, []}, AffectPetKeys).
+
 
 
 get_target_pet_key(FightKey, AllPetDict) ->
@@ -209,7 +245,7 @@ get_area_pet_keys(all_friend, TargetKey, AllPetDict) ->
     get_exists_keys(get_oppo_side(Side), Poses, AllPetDict).
 
 get_exists_keys(Side, Poses, AllPetDict) ->
-    lists:fold(fun(I, Acc) ->
+    lists:foldl(fun(I, Acc) ->
                        case dict:find({Side, I}, AllPetDict) of
                            {ok, _Pet} ->
                                [{Side, I} | Acc];
@@ -218,10 +254,26 @@ get_exists_keys(Side, Poses, AllPetDict) ->
                        end
                end, [], Poses).
 
+get_skill_effects(?SKILL_NORMAL) ->
+    [#c_effect{type = hurt, value = 20, area = direct}];
+get_skill_effects(?SKILL_BACKSTAB) ->
+    [#c_effect{type = hurt, value = 25, area = back}];
+get_skill_effects(?SKILL_HORIZONTAL) ->
+    [#c_effect{type = hurt, value = 15, area = horizontal}];
+get_skill_effects(?SKILL_VERTICAL) ->
+    [#c_effect{type = hurt, value = 15, area = vertical}];
+get_skill_effects(?SKILL_ATTACK_ALL) ->
+    [#c_effect{type = hurt, value = 10, area = all_enemy}];
+get_skill_effects(?SKILL_HEAL_FRIENDS) ->
+    [#c_effect{type = hurt, value = 20, area = direct},
+     #c_effect{type = heal, value = 15, area = all_friend}];
+get_skill_effects(_SkillID) ->
+    not_found.
+
 test() ->
-    Pet1 = #pet{pos = 1, seq = 1, hp = 100, phy_attack = 25},
-    Pet2 = #pet{pos = 2, seq = 2, hp = 150, phy_attack = 20},
-    Pet3 = #pet{pos = 3, seq = 3, hp = 75, phy_attack = 30},
+    Pet1 = #pet{pos = 1, seq = 1, hp = 100, phy_attack = 25, skill = ?SKILL_ATTACK_ALL},
+    Pet2 = #pet{pos = 2, seq = 2, hp = 150, phy_attack = 20, skill = ?SKILL_BACKSTAB},
+    Pet3 = #pet{pos = 3, seq = 3, hp = 75, phy_attack = 30, skill = ?SKILL_HEAL_FRIENDS},
     Left = #side_info{name = "Robot1", pets = [Pet1, Pet3]},
     Right = #side_info{name = "Robot2", pets = [Pet1, Pet2]},
     pk(Left, Right).
