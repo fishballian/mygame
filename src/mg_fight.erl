@@ -168,15 +168,9 @@ apply_effect2(heal, AffectPetKeys, Value, _FightPet, AllPetDict) ->
                         NewTHP = erlang:min(MaxHp, THP + AddHp),
                         Effect = #effect_log{dst = I, hp_change = AddHp, hp_remain = NewTHP},
                         NewEffectAcc = [Effect | EffectAcc],
-                        case NewTHP > 0 of
-                            true ->
-                                NewAffectPet = AffectPet#pet{hp = NewTHP},
-                                NewAllPetDictAcc = dict:store(I, NewAffectPet, AllPetDictAcc),
-                                {NewAllPetDictAcc, NewEffectAcc};
-                            _ ->
-                                NewAllPetDictAcc = dict:erase(I, AllPetDictAcc),
-                                {NewAllPetDictAcc, NewEffectAcc} 
-                        end
+                        NewAffectPet = AffectPet#pet{hp = NewTHP},
+                        NewAllPetDictAcc = dict:store(I, NewAffectPet, AllPetDictAcc),
+                        {NewAllPetDictAcc, NewEffectAcc}
                 end, {AllPetDict, []}, AffectPetKeys).
 
 
