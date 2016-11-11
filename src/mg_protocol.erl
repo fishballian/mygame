@@ -16,7 +16,6 @@
 -export([terminate/2]).
 -export([code_change/3]).
 
--define(TIMEOUT, 500000).
 
 -record(state, {socket, transport}).
 
@@ -34,24 +33,23 @@ init([]) -> {ok, undefined}.
 init(Ref, Socket, Transport, _Opts = []) ->
 	ok = proc_lib:init_ack({ok, self()}),
 	ok = ranch:accept_ack(Ref),
-	ok = Transport:setopts(Socket, [{active, once}]),
-	gen_server:enter_loop(?MODULE, [],
-		#state{socket=Socket, transport=Transport},
-		?TIMEOUT).
+	ok = Transport:setopts(Socket, [{active, once}, {packet, 4}]),
+	gen_server:enter_loop(?MODULE, [], #state{socket=Socket, transport=Transport}).
 
 handle_info({tcp, Socket, Data}, State=#state{
 		socket=Socket, transport=Transport}) ->
 	Transport:setopts(Socket, [{active, once}]),
-    %% handle msg
-    %% mg_route:handle(Data, State),
-	Transport:send(Socket, reverse_binary(Data)),
-	{noreply, State, ?TIMEOUT};
+    Ret = handle_data(Data),
+	Transport:send(Socket, Ret),
+	{noreply, State};
 handle_info({tcp_closed, _Socket}, State) ->
 	{stop, normal, State};
 handle_info({tcp_error, _, Reason}, State) ->
 	{stop, Reason, State};
-handle_info(timeout, State) ->
-	{stop, normal, State};
+handle_info({send, Msg}, State) ->
+    #state{socket = Socket, transport = Transport} = State,
+    Transport:send(Socket, Msg),
+    {noreply, State};
 handle_info(_Info, State) ->
 	{stop, normal, State}.
 
@@ -68,8 +66,15 @@ code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
 %% Internal.
+handle_data(Data) ->
+    case erlang:binary_to_term(Data) of
+        {join, Channel, Name} ->
+            mchat:join(Channel, Name, self());
+        {leave, Channel, Name} ->
+            mchat:leave(Channel, Name);
+        {send, Channel, Name, Msg} ->
+            mchat:send(Channel, Name, Msg)
+    end,
+    "ok\n".
 
-reverse_binary(B) when is_binary(B) ->
-	[list_to_binary(lists:reverse(binary_to_list(
-		binary:part(B, {0, byte_size(B)-2})
-	))), "\r\n"].
+

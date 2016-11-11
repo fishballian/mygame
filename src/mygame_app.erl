@@ -14,6 +14,8 @@ start(_StartType, _StartArgs) ->
                                    ranch_tcp, [{port, 5555}],
                                    mg_protocol, []
                                   ),
+    {ok, Pid} = mchat:new_channel(),
+    erlang:register(c1, Pid),
     mygame_sup:start_link().
 
 stop(_State) ->
